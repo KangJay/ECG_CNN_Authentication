@@ -23,16 +23,9 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 import sys 
 
-
 '''
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.preprocessing import LabelEncoder
-'''
-
-'''
-Don't really need all of these imports. Will clean up in the next commit. 
-Requirements: Need numpy, pandas, wfdb for denoising and segmenting data 
-Need Tensorflow and keras package for one-hot-encoding the data. 
+Will make a requirements.txt using pip freeze to get all the necessary packages
+for this program.  
 '''
 
 #----------------------------GETTING_DATA ------------------------------
@@ -84,7 +77,7 @@ def segment_QRS(qrs_inds, signals):
     '''
     one_behind = 0
     for ind in qrs_inds[0]: 
-        if ind == qrs_inds[0][0]: continue 
+        if ind == qrs_inds[0][0]: continue # If 'ind' is the first one in the list, skip -- Fencepost algorithm 
         #Case when we just need to iterate from the last prev_ind to the end of signals
         if ind == qrs_inds[0][-1]: 
             '''
@@ -118,22 +111,22 @@ def one_hot_encode(qrs_segments, record_name):
     sub_filepath = filepath + record_name 
     if not os.path.exists(sub_filepath): 
         os.makedirs(sub_filepath)
+    #If we've already dealt with this specific record. 
     if os.path.exists(sub_filepath + '.zip'):
         print('{0}\'s directory already exists. Skipping this record.'.format(record_name))
         return 
     
-    #np.save(sub_filepath + '/seg1', sub_filepath)
-    seg_filepath = sub_filepath + '/seg'    # Name of the actual files we'll use. 
-    counter = 0 
+    seg_filepath = sub_filepath + '/seg'    # Name of the actual files we'll use. E.g. seg0, seg1, seg2 = the binary files. 
+    counter = 0     # For appending a number to make each filename unique. 
     for qrs_complex in qrs_segments:
-        #Integer encoding 
+        #Integer encoding: Need to convert the floating point values to integers for binary encoding. 
         label_encoder = LabelEncoder() 
         integer_encoded = label_encoder.fit_transform(qrs_complex) 
         #Binary encoding:One-hot encoding
         onehot_encoder = OneHotEncoder(sparse=False) 
         integer_encoded = integer_encoded.reshape(len(integer_encoded), 1) 
         onehot_encoded = onehot_encoder.fit_transform(integer_encoded)
-        np.save(seg_filepath + str(counter), onehot_encoded) 
+        np.save(seg_filepath + str(counter), onehot_encoded)    # Saving as a binary file (numpy array) 
         counter = counter + 1 
     #Need to compress folder here. 
     shutil.make_archive(sub_filepath, 'zip', sub_filepath)
@@ -141,8 +134,12 @@ def one_hot_encode(qrs_segments, record_name):
 
 
 #------------------------------------------------------------------------
-def extract_records(extract_num=48, deleteZips=True):
-    #['record101.zip', 'record104.zip', 'record100.zip', 'record102.zip', 'record103.zip']
+def extract_records(deleteZips=True):
+    '''
+    Short-hand function to extract all of our extracted files for training the model. 
+    All the binary files are currently zip-archived in order to exponentially save space.
+    A typical record's binary files are 300-400 MB each. Compressed, they're 2-3 MB. 
+    '''
     all_zip_files = os.listdir(os.getcwd() + '/encoded_record_segments')
     extract_dir = os.getcwd() + '/encoded_record_segments'
     for file in all_zip_files:
@@ -166,21 +163,8 @@ if __name__ == '__main__':
     records. Having '1' will run it on the first record, '5' will run on the first 5 
     records and so on. 
     '''
-    
-    qrs_inds, signals = qrs_detect(records, 11) 
+    qrs_inds, signals = qrs_detect(records, 11) #
     for qrs, sig, record in zip(qrs_inds, signals, records): 
         segments = segment_QRS(qrs_inds, sig) 
-        one_hot_encode(segments, 'record' + record[5:]) 
-    
-    '''
-    FOR RECORD 100
-    Printed out a couple QRS complex values to see the actual curve. 
-    Confirmed with the record100signals.txt 
-    The average value for a still wave (flat) is around -0.250 for this frequency sampling. 
-    The start of the complex value (Q) dips to about -0.400 then increases dramatically
-    for the R peak, then decreases back down to around -0.400 then stabilizes. 
-    QRS complex detection complete. Will need to segment, one-hot encode then start training
-    the model using TensorFlow. 
-    These values were printed just to see that it is indeed the R peak. 
-    '''
+        one_hot_encode(segments, 'record' + record[5:]) # [5:] will get rid of the 'data' prefix in the path. 
     
