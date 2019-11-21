@@ -2,7 +2,6 @@
 A CNN approach at ECG authentication
 
 ## Researchers
-[mkhsu](https://github.com/mkhsu)  
 [KangJay](https://github.com/KangJay)
 
 ## Professor
